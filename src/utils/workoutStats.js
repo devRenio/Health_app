@@ -1,10 +1,22 @@
 /**
  * Pure helpers for calendar summaries and editor defaults.
  */
-import {normalizeBodyParts, formatBodyPartsLabel} from '../constants/bodyParts';
+import {
+  normalizeBodyParts,
+  formatBodyPartsLabel,
+  isCardioExercise,
+} from '../constants/bodyParts';
 import {formatTime} from './dateUtils';
 
-export const calcSetVolume = set => (set.weight || 0) * (set.reps || 0);
+export const isCardioRecord = record =>
+  isCardioExercise(record.bodyParts ?? record.bodyPart);
+
+export const calcSetVolume = set => {
+  if (set.minutes != null) {
+    return 0;
+  }
+  return (set.weight || 0) * (set.reps || 0);
+};
 
 export const calcRecordVolume = record =>
   (record.sets ?? []).reduce((sum, s) => sum + calcSetVolume(s), 0);
@@ -38,13 +50,23 @@ export const formatVolume = volume => {
 
 export const formatBodyParts = parts => formatBodyPartsLabel(parts);
 
-export const cloneRecord = record => ({
-  id: record.id,
-  exerciseId: record.exerciseId,
-  exerciseName: record.exerciseName,
-  bodyParts: normalizeBodyParts(record.bodyParts ?? record.bodyPart),
-  sets: (record.sets ?? []).map(s => ({weight: s.weight, reps: s.reps})),
-});
+export const cloneRecord = record => {
+  const cardio = isCardioRecord(record);
+  return {
+    id: record.id,
+    exerciseId: record.exerciseId,
+    exerciseName: record.exerciseName,
+    bodyParts: normalizeBodyParts(record.bodyParts ?? record.bodyPart),
+    sets: (record.sets ?? []).map(s =>
+      cardio || s.minutes != null
+        ? {minutes: s.minutes ?? 0}
+        : {weight: s.weight ?? 0, reps: s.reps ?? 1},
+    ),
+  };
+};
+
+export const formatSetSummary = (set, cardio) =>
+  cardio ? `${set.minutes ?? 0}분` : `무게 ${set.weight} · 횟수 ${set.reps}`;
 
 export const emptyEditorRecord = () => ({
   id: null,
@@ -70,3 +92,14 @@ export const parseTimeOnDate = (dateStr, hhmm) => {
 
 /** ISO → "HH:mm" for editor fields. */
 export const isoToHHmm = iso => (iso ? formatTime(iso) : '');
+
+/** Resolve session times; 00:00–00:00 means "not set". */
+export const resolveSessionTimes = (dateStr, startTime, endTime) => {
+  if (startTime === '00:00' && endTime === '00:00') {
+    return {startedAt: null, endedAt: null};
+  }
+  return {
+    startedAt: parseTimeOnDate(dateStr, startTime),
+    endedAt: parseTimeOnDate(dateStr, endTime),
+  };
+};

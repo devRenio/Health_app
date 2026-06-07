@@ -1,4 +1,4 @@
-/** Start / end time fields (HH:mm). */
+/** Start / end time fields — default display 00:00. */
 import React from 'react';
 import {View, Text, TextInput, StyleSheet} from 'react-native';
 import {COLORS, SPACING, RADIUS} from '../theme';
@@ -14,7 +14,7 @@ export default function TimeRangeEditor({startTime, endTime, onChangeStart, onCh
             style={styles.input}
             value={startTime}
             onChangeText={onChangeStart}
-            placeholder="07:00"
+            placeholder="00:00"
             placeholderTextColor={COLORS.brownMuted}
             keyboardType="numbers-and-punctuation"
             maxLength={5}
@@ -27,7 +27,7 @@ export default function TimeRangeEditor({startTime, endTime, onChangeStart, onCh
             style={styles.input}
             value={endTime}
             onChangeText={onChangeEnd}
-            placeholder="08:30"
+            placeholder="00:00"
             placeholderTextColor={COLORS.brownMuted}
             keyboardType="numbers-and-punctuation"
             maxLength={5}

@@ -12,14 +12,10 @@ import {
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useWorkoutStore, formatDate} from '../store';
-import {
-  getMonthGrid,
-  formatMonthTitle,
-  shiftMonth,
-  isToday,
-} from '../utils/dateUtils';
+import {getMonthGrid, shiftMonth, isToday} from '../utils/dateUtils';
 import {formatVolume, formatBodyParts} from '../utils/workoutStats';
 import {useFadeSlide, animateLayout} from '../utils/animations';
+import MonthYearHeader from '../components/MonthYearHeader';
 import {COLORS, SPACING, RADIUS} from '../theme';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -34,6 +30,8 @@ export default function CalendarScreen({navigation}) {
   const {opacity, translateY} = useFadeSlide(monthKey);
 
   const getMonthSummaries = useWorkoutStore(s => s.getMonthSummaries);
+  const getYearRange = useWorkoutStore(s => s.getYearRange);
+  const yearRange = useMemo(() => getYearRange(), [getYearRange]);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,15 +54,18 @@ export default function CalendarScreen({navigation}) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Pressable onPress={() => changeMonth(-1)} hitSlop={12}>
-          <Text style={styles.navBtn}>‹</Text>
-        </Pressable>
-        <Text style={styles.title}>{formatMonthTitle(year, month)}</Text>
-        <Pressable onPress={() => changeMonth(1)} hitSlop={12}>
-          <Text style={styles.navBtn}>›</Text>
-        </Pressable>
-      </View>
+      <MonthYearHeader
+        year={year}
+        month={month}
+        yearRange={yearRange}
+        onChange={(y, m) => {
+          animateLayout('ease');
+          setYear(y);
+          setMonth(m);
+        }}
+        onPrev={() => changeMonth(-1)}
+        onNext={() => changeMonth(1)}
+      />
 
       <View style={styles.weekRow}>
         {WEEKDAYS.map(w => (
@@ -142,9 +143,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.darkBrown,
   },
-  navBtn: {fontSize: 28, color: COLORS.darkBrown, width: 40, textAlign: 'center'},
+  navBtn: {
+    fontSize: 28,
+    color: COLORS.darkBrown,
+    width: 40,
+    textAlign: 'center',
+  },
   title: {fontSize: 20, fontWeight: '700', color: COLORS.darkBrown},
-  weekRow: {flexDirection: 'row', paddingHorizontal: SPACING.sm, paddingTop: SPACING.sm},
+  weekRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.sm,
+    paddingTop: SPACING.sm,
+  },
   weekLabel: {
     flex: 1,
     textAlign: 'center',

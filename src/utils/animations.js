@@ -7,7 +7,7 @@ import {
   UIManager,
   Animated,
 } from 'react-native';
-import {useEffect, useRef} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 if (
   Platform.OS === 'android' &&
@@ -33,7 +33,6 @@ export const animateLayout = (preset = 'ease') => {
   LayoutAnimation.configureNext(presets[preset] ?? presets.ease);
 };
 
-/** Brief scale pulse when `value` changes (number pickers). */
 export function useValuePulse(value) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -56,7 +55,6 @@ export function useValuePulse(value) {
   return scale;
 }
 
-/** Fade + slight slide for calendar month swaps. */
 export function useFadeSlide(key) {
   const opacity = useRef(new Animated.Value(1)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -82,13 +80,20 @@ export function useFadeSlide(key) {
   return {opacity, translateY};
 }
 
-/** Slide-up sheet for modals. */
-export function useSheetAnimation(visible) {
+/**
+ * Sheet modal: stays mounted until close animation finishes.
+ * Call `requestClose(cb)` instead of toggling visible off immediately.
+ */
+export function useAnimatedSheet(visible) {
+  const [mounted, setMounted] = useState(visible);
   const translateY = useRef(new Animated.Value(400)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      setMounted(true);
+      translateY.setValue(400);
+      backdrop.setValue(0);
       Animated.parallel([
         Animated.timing(backdrop, {
           toValue: 1,
@@ -102,21 +107,36 @@ export function useSheetAnimation(visible) {
           useNativeDriver: true,
         }),
       ]).start();
-    } else {
+    }
+  }, [visible, translateY, backdrop]);
+
+  const requestClose = useCallback(
+    onDone => {
       Animated.parallel([
         Animated.timing(backdrop, {
           toValue: 0,
-          duration: 180,
+          duration: 200,
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
           toValue: 400,
-          duration: 200,
+          duration: 220,
           useNativeDriver: true,
         }),
-      ]).start();
-    }
-  }, [visible, translateY, backdrop]);
+      ]).start(({finished}) => {
+        if (finished) {
+          setMounted(false);
+        }
+        onDone?.();
+      });
+    },
+    [translateY, backdrop],
+  );
 
-  return {translateY, backdrop};
+  return {mounted, translateY, backdrop, requestClose};
+}
+
+/** @deprecated use useAnimatedSheet */
+export function useSheetAnimation(visible) {
+  return useAnimatedSheet(visible);
 }

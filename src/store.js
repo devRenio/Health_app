@@ -18,6 +18,10 @@ import {
   getDayBodyParts,
   formatTimeRange,
 } from './utils/workoutStats';
+import {
+  aggregateMonthStats,
+  aggregateAllTimeStats,
+} from './utils/statsAggregator';
 
 export const storage = new MMKV({id: 'workout-storage'});
 
@@ -52,7 +56,9 @@ const normalizeRecord = (raw, exercises) => {
     return {
       ...raw,
       bodyParts: normalizeBodyParts(
-        raw.bodyParts ?? raw.bodyPart ?? exercises.find(e => e.id === raw.exerciseId)?.bodyParts,
+        raw.bodyParts ??
+          raw.bodyPart ??
+          exercises.find(e => e.id === raw.exerciseId)?.bodyParts,
       ),
       sets: raw.sets ?? [],
     };
@@ -102,8 +108,7 @@ export const readDayData = date => {
 };
 
 const writeDayData = (date, {records, startedAt, endedAt}) => {
-  const hasContent =
-    records.length > 0 || startedAt || endedAt;
+  const hasContent = records.length > 0 || startedAt || endedAt;
   if (!hasContent) {
     storage.delete(date);
     return;
@@ -239,8 +244,7 @@ export const useWorkoutStore = create((set, get) => ({
 
   getDaySummary: date => {
     const {records, startedAt, endedAt} = readDayData(date);
-    const hasContent =
-      records.length > 0 || startedAt || endedAt;
+    const hasContent = records.length > 0 || startedAt || endedAt;
     if (!hasContent) {
       return null;
     }
@@ -278,6 +282,30 @@ export const useWorkoutStore = create((set, get) => ({
         return records.length > 0 || startedAt || endedAt;
       })
       .sort(),
+
+  getYearRange: () => {
+    const now = new Date().getFullYear();
+    const nextYear = now + 1;
+    const dateKeys = storage
+      .getAllKeys()
+      .filter(k => DATE_KEY_RE.test(k))
+      .sort();
+    let minYear = 2000;
+    if (dateKeys.length > 0) {
+      minYear = parseInt(dateKeys[0].slice(0, 4), 10);
+    }
+    const years = [];
+    for (let y = minYear; y <= nextYear; y += 1) {
+      years.push(y);
+    }
+    return years;
+  },
+
+  getMonthStats: (year, month) =>
+    aggregateMonthStats(year, month, readDayData, formatDate),
+
+  getAllTimeStats: () =>
+    aggregateAllTimeStats(readDayData, () => get().getAllWorkoutDates()),
 }));
 
 export {formatDate} from './utils/dateUtils';

@@ -1,11 +1,15 @@
 import React, {memo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {calcRecordVolume} from '../utils/workoutStats';
+import {calcRecordVolume, formatSetSummary, isCardioRecord} from '../utils/workoutStats';
 import {formatBodyPartsLabel} from '../constants/bodyParts';
 
 function WorkoutRecordCard({record}) {
+  const cardio = isCardioRecord(record);
   const volume = calcRecordVolume(record);
+  const totalMinutes = cardio
+    ? (record.sets ?? []).reduce((sum, s) => sum + (s.minutes ?? 0), 0)
+    : 0;
 
   return (
     <View style={styles.card}>
@@ -18,14 +22,16 @@ function WorkoutRecordCard({record}) {
       {record.sets.map((s, i) => (
         <View key={i} style={styles.setRow}>
           <Text style={styles.setIdx}>#{i + 1}</Text>
-          <Text style={styles.setText}>
-            {s.weight} kg × {s.reps}
-          </Text>
+          <Text style={styles.setText}>{formatSetSummary(s, cardio)}</Text>
         </View>
       ))}
-      <Text style={styles.volume}>
-        볼륨 {Math.round(volume).toLocaleString('ko-KR')}kg
-      </Text>
+      {cardio ? (
+        <Text style={styles.volume}>총 {totalMinutes}분</Text>
+      ) : volume > 0 ? (
+        <Text style={styles.volume}>
+          볼륨 {Math.round(volume).toLocaleString('ko-KR')}kg
+        </Text>
+      ) : null}
     </View>
   );
 }

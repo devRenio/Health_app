@@ -1,17 +1,39 @@
-/** Compact inline row for one set (weight × reps + delete). */
+/** Compact set row — strength (weight/reps) or cardio (minutes). */
 import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import NumberPicker from './NumberPicker';
 import {COLORS, SPACING, RADIUS} from '../theme';
 
-export default function SetRowEditor({index, set, onChange, onRemove}) {
+export default function SetRowEditor({set, cardio, onChange, onRemove}) {
+  if (cardio) {
+    return (
+      <View style={styles.row}>
+        <View style={styles.pickWrap}>
+          <NumberPicker
+            mini
+            label="시간"
+            value={set.minutes ?? 0}
+            onChange={v => onChange({minutes: v})}
+            stepSmall={1}
+            stepLarge={5}
+            min={1}
+            max={300}
+          />
+        </View>
+        <Text style={styles.unit}>분</Text>
+        <Pressable hitSlop={8} onPress={onRemove} style={styles.del}>
+          <Text style={styles.delText}>✕</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.row}>
-      <Text style={styles.idx}>#{index + 1}</Text>
       <View style={styles.pickWrap}>
         <NumberPicker
-          compact
-          label="kg"
+          mini
+          label="무게"
           value={set.weight}
           onChange={v => onChange({weight: v})}
           stepSmall={1}
@@ -21,11 +43,10 @@ export default function SetRowEditor({index, set, onChange, onRemove}) {
           allowDecimal
         />
       </View>
-      <Text style={styles.times}>×</Text>
       <View style={styles.pickWrap}>
         <NumberPicker
-          compact
-          label="reps"
+          mini
+          label="횟수"
           value={set.reps}
           onChange={v => onChange({reps: v})}
           stepSmall={1}
@@ -44,23 +65,24 @@ export default function SetRowEditor({index, set, onChange, onRemove}) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     backgroundColor: COLORS.beige,
     borderRadius: RADIUS.sm,
     paddingVertical: 4,
-    paddingHorizontal: SPACING.xs,
+    paddingHorizontal: 4,
     marginBottom: 4,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.brownMuted,
+    gap: 4,
   },
-  idx: {
-    width: 22,
-    fontSize: 11,
-    fontWeight: '700',
+  pickWrap: {flex: 1, minWidth: 0},
+  unit: {
+    fontSize: 13,
     color: COLORS.brownMuted,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginRight: 4,
   },
-  pickWrap: {flex: 1},
-  times: {fontSize: 12, color: COLORS.darkBrown, marginHorizontal: 2},
-  del: {padding: 4},
-  delText: {color: COLORS.danger, fontSize: 14, fontWeight: '700'},
+  del: {padding: 4, marginBottom: 6},
+  delText: {color: COLORS.danger, fontSize: 13, fontWeight: '700'},
 });

@@ -22,7 +22,7 @@ import {
   normalizeBodyParts,
 } from '../constants/bodyParts';
 import {COLORS, SPACING, RADIUS} from '../theme';
-import {animateLayout, useSheetAnimation} from '../utils/animations';
+import {animateLayout, useAnimatedSheet} from '../utils/animations';
 
 export default function ExercisePickerModal({visible, onClose, onSelect}) {
   const exercises = useWorkoutStore(s => s.exercises);
@@ -31,7 +31,7 @@ export default function ExercisePickerModal({visible, onClose, onSelect}) {
   const updateExercise = useWorkoutStore(s => s.updateExercise);
   const removeExercise = useWorkoutStore(s => s.removeExercise);
 
-  const {translateY, backdrop} = useSheetAnimation(visible);
+  const {mounted, translateY, backdrop, requestClose} = useAnimatedSheet(visible);
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -53,10 +53,19 @@ export default function ExercisePickerModal({visible, onClose, onSelect}) {
     setEditId(null);
   };
 
+  const closeModal = () => {
+    requestClose(() => {
+      resetForm();
+      onClose();
+    });
+  };
+
   const handleSelect = exercise => {
     onSelect(exercise);
-    resetForm();
-    onClose();
+    requestClose(() => {
+      resetForm();
+      onClose();
+    });
   };
 
   const handleAdd = () => {
@@ -87,15 +96,15 @@ export default function ExercisePickerModal({visible, onClose, onSelect}) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={closeModal}>
       <View style={styles.overlay}>
         <Animated.View style={[styles.backdrop, {opacity: backdrop}]} />
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeModal} />
         <Animated.View style={[styles.sheetWrap, {transform: [{translateY}]}]}>
           <SafeAreaView style={styles.sheet}>
             <View style={styles.header}>
               <Text style={styles.title}>종목 선택</Text>
-              <Pressable onPress={onClose} hitSlop={12}>
+              <Pressable onPress={closeModal} hitSlop={12}>
                 <Text style={styles.close}>닫기</Text>
               </Pressable>
             </View>
@@ -159,7 +168,7 @@ export default function ExercisePickerModal({visible, onClose, onSelect}) {
                     <View style={styles.rowRight}>
                       {stat ? (
                         <Text style={styles.lastStat}>
-                          직전 {stat.lastWeight}kg × {stat.lastReps}
+                          직전 {stat.lastWeight} × {stat.lastReps}
                         </Text>
                       ) : (
                         <Text style={styles.noStat}>기록 없음</Text>

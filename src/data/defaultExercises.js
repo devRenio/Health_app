@@ -14,3 +14,5 @@ export const DEFAULT_WEIGHT_BY_ID = {
 };
 
 export const DEFAULT_REPS = 8;
+
+export const DEFAULT_CARDIO_MINUTES = 20;

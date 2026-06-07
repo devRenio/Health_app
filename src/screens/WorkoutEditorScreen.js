@@ -18,10 +18,11 @@ import TimeRangeEditor from '../components/TimeRangeEditor';
 import {
   cloneRecord,
   emptyEditorRecord,
-  parseTimeOnDate,
   isoToHHmm,
+  resolveSessionTimes,
 } from '../utils/workoutStats';
-import {formatBodyPartsLabel} from '../constants/bodyParts';
+import {DEFAULT_CARDIO_MINUTES} from '../data/defaultExercises';
+import {formatBodyPartsLabel, isCardioExercise} from '../constants/bodyParts';
 import {animateLayout} from '../utils/animations';
 import {COLORS, SPACING, RADIUS} from '../theme';
 
@@ -47,21 +48,33 @@ export default function WorkoutEditorScreen({route, navigation}) {
   }, [mode, dayData.records]);
 
   const [blocks, setBlocks] = useState(initialBlocks);
-  const [startTime, setStartTime] = useState(isoToHHmm(dayData.startedAt));
-  const [endTime, setEndTime] = useState(isoToHHmm(dayData.endedAt));
+  const [startTime, setStartTime] = useState(
+    isoToHHmm(dayData.startedAt) || '00:00',
+  );
+  const [endTime, setEndTime] = useState(isoToHHmm(dayData.endedAt) || '00:00');
   const [pickerVisible, setPickerVisible] = useState(false);
   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
   const [draftWeight, setDraftWeight] = useState(20);
   const [draftReps, setDraftReps] = useState(getDefaultReps());
+  const [draftMinutes, setDraftMinutes] = useState(DEFAULT_CARDIO_MINUTES);
 
   const syncDraftFromBlock = (block, exerciseId) => {
     const last = block.sets[block.sets.length - 1];
+    const cardio = isCardioExercise(block.bodyParts);
     if (last) {
-      setDraftWeight(last.weight);
-      setDraftReps(last.reps);
+      if (cardio) {
+        setDraftMinutes(last.minutes ?? DEFAULT_CARDIO_MINUTES);
+      } else {
+        setDraftWeight(last.weight);
+        setDraftReps(last.reps);
+      }
     } else if (exerciseId) {
-      setDraftWeight(getDefaultWeight(exerciseId));
-      setDraftReps(getDefaultReps());
+      if (cardio) {
+        setDraftMinutes(DEFAULT_CARDIO_MINUTES);
+      } else {
+        setDraftWeight(getDefaultWeight(exerciseId));
+        setDraftReps(getDefaultReps());
+      }
     }
   };
 
@@ -87,16 +100,22 @@ export default function WorkoutEditorScreen({route, navigation}) {
     );
     setDraftWeight(getDefaultWeight(exercise.id));
     setDraftReps(getDefaultReps());
+    setDraftMinutes(DEFAULT_CARDIO_MINUTES);
   };
 
   const addSetToBlock = idx => {
     animateLayout('spring');
     setBlocks(prev =>
-      prev.map((b, i) =>
-        i === idx
-          ? {...b, sets: [...b.sets, {weight: draftWeight, reps: draftReps}]}
-          : b,
-      ),
+      prev.map((b, i) => {
+        if (i !== idx) {
+          return b;
+        }
+        const cardio = isCardioExercise(b.bodyParts);
+        const nextSet = cardio
+          ? {minutes: draftMinutes}
+          : {weight: draftWeight, reps: draftReps};
+        return {...b, sets: [...b.sets, nextSet]};
+      }),
     );
   };
 
@@ -155,17 +174,17 @@ export default function WorkoutEditorScreen({route, navigation}) {
         sets: b.sets,
       }));
 
-    const startedAt = parseTimeOnDate(date, startTime);
-    const endedAt = parseTimeOnDate(date, endTime);
+    const {startedAt, endedAt} = resolveSessionTimes(date, startTime, endTime);
 
     if (mode === 'edit') {
       saveDayData(date, {records: valid, startedAt, endedAt});
     } else if (valid.length > 0 || startedAt || endedAt) {
       const existing = loadWorkoutByDate(date);
+      const existingDay = loadDayData(date);
       saveDayData(date, {
         records: [...existing, ...valid],
-        startedAt: startedAt ?? dayData.startedAt,
-        endedAt: endedAt ?? dayData.endedAt,
+        startedAt: startedAt ?? existingDay.startedAt,
+        endedAt: endedAt ?? existingDay.endedAt,
       });
     }
 
@@ -178,8 +197,7 @@ export default function WorkoutEditorScreen({route, navigation}) {
     endTime,
     saveDayData,
     loadWorkoutByDate,
-    dayData.startedAt,
-    dayData.endedAt,
+    loadDayData,
     navigation,
   ]);
 
@@ -231,47 +249,67 @@ export default function WorkoutEditorScreen({route, navigation}) {
 
             {block.exerciseId ? (
               <>
-                <View style={styles.draftRow}>
-                  <View style={styles.draftCol}>
-                    <NumberPicker
-                      compact
-                      label="무게 kg"
-                      value={draftWeight}
-                      onChange={setDraftWeight}
-                      stepSmall={1}
-                      stepLarge={5}
-                      min={0}
-                      max={500}
-                      allowDecimal
-                    />
+                {isCardioExercise(block.bodyParts) ? (
+                  <View style={styles.draftRow}>
+                    <View style={styles.draftCol}>
+                      <NumberPicker
+                        compact
+                        label="시간"
+                        value={draftMinutes}
+                        onChange={setDraftMinutes}
+                        stepSmall={1}
+                        stepLarge={5}
+                        min={1}
+                        max={300}
+                      />
+                    </View>
+                    <Text style={styles.minuteHint}>분</Text>
                   </View>
-                  <View style={styles.draftCol}>
-                    <NumberPicker
-                      compact
-                      label="횟수"
-                      value={draftReps}
-                      onChange={setDraftReps}
-                      stepSmall={1}
-                      stepLarge={5}
-                      min={1}
-                      max={100}
-                    />
+                ) : (
+                  <View style={styles.draftRow}>
+                    <View style={styles.draftCol}>
+                      <NumberPicker
+                        compact
+                        label="무게"
+                        value={draftWeight}
+                        onChange={setDraftWeight}
+                        stepSmall={1}
+                        stepLarge={5}
+                        min={0}
+                        max={500}
+                        allowDecimal
+                      />
+                    </View>
+                    <View style={styles.draftCol}>
+                      <NumberPicker
+                        compact
+                        label="횟수"
+                        value={draftReps}
+                        onChange={setDraftReps}
+                        stepSmall={1}
+                        stepLarge={5}
+                        min={1}
+                        max={100}
+                      />
+                    </View>
                   </View>
-                </View>
+                )}
                 <Pressable
                   style={({pressed}) => [
                     styles.addSetBtn,
                     pressed && styles.pressed,
                   ]}
                   onPress={() => addSetToBlock(blockIdx)}>
-                  <Text style={styles.addSetText}>+ 세트 추가</Text>
+                  <Text style={styles.addSetText}>
+                    {isCardioExercise(block.bodyParts) ? '+ 기록 추가' : '+ 세트 추가'}
+                  </Text>
                 </Pressable>
 
                 {block.sets.map((s, setIdx) => (
                   <SetRowEditor
                     key={setIdx}
-                    index={setIdx}
                     set={s}
+                    cardio={isCardioExercise(block.bodyParts)}
                     onChange={patch => updateSet(blockIdx, setIdx, patch)}
                     onRemove={() => removeSet(blockIdx, setIdx)}
                   />
@@ -345,8 +383,14 @@ const styles = StyleSheet.create({
   },
   exerciseName: {fontSize: 14, fontWeight: '700', color: COLORS.darkBrown},
   exercisePart: {fontSize: 10, color: COLORS.indigo, marginTop: 2},
-  draftRow: {flexDirection: 'row', gap: SPACING.xs},
+  draftRow: {flexDirection: 'row', gap: SPACING.xs, alignItems: 'flex-end'},
   draftCol: {flex: 1},
+  minuteHint: {
+    fontSize: 14,
+    color: COLORS.brownMuted,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
   addSetBtn: {
     backgroundColor: COLORS.indigo,
     paddingVertical: 6,
